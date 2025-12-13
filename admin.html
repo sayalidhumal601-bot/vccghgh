@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NewsPortal Admin</title>
+  <style>
+    body{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;background:#0f0f23;color:#fff;margin:0}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    h1{font-size:1.8rem;margin:0 0 16px}
+    .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px;margin:12px 0}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    label{display:block;font-size:.9rem;color:#cfd3dc;margin:6px 0 4px}
+    input,textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.25);color:#fff}
+    textarea{min-height:80px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+    .btn{background:linear-gradient(45deg,#ff6b6b,#4ecdc4);border:none;color:#fff;padding:10px 16px;border-radius:999px;cursor:pointer;font-weight:700}
+    .btn.sec{background:rgba(255,255,255,.12)}
+    .btn.danger{background:#dc3545}
+    .bar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:8px 0}
+    .muted{color:#9aa0a6;font-size:.9rem}
+    .list-item{border:1px dashed rgba(255,255,255,.2);border-radius:10px;padding:12px;margin:8px 0}
+    .divider{height:1px;background:rgba(255,255,255,.15);margin:16px 0}
+    .upload-section{border:2px dashed rgba(255,255,255,.3);border-radius:8px;padding:20px;text-align:center;margin:10px 0}
+    .upload-section.dragover{border-color:#4ecdc4}
+    .success{color:#28a745}
+    .error{color:#dc3545}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>NewsPortal Admin</h1>
+
+    <div class="card">
+      <div class="bar">
+        <strong>Upload Files</strong>
+      </div>
+      <div class="upload-section" id="articleUpload">
+        <div>Drop HTML article files here or click to browse</div>
+        <input type="file" id="articleFile" accept=".html" multiple style="display:none" />
+      </div>
+      <div class="upload-section" id="imageUpload">
+        <div>Drop image files here or click to browse</div>
+        <input type="file" id="imageFile" accept="image/*" multiple style="display:none" />
+      </div>
+      <div id="uploadStatus"></div>
+    </div>
+
+    <div class="card">
+      <div class="bar">
+        <strong>Latest News</strong>
+        <button class="btn" id="addNews">+ Add News</button>
+      </div>
+      <div id="newsList"></div>
+    </div>
+
+    <div class="card">
+      <div class="bar">
+        <strong>Article Editor</strong>
+      </div>
+      <div class="row">
+        <select id="articleSelect">
+          <option value="">Select an article to edit...</option>
+        </select>
+        <button class="btn" id="loadArticle">Load Article</button>
+      </div>
+      <textarea id="articleContent" placeholder="Article HTML content will appear here..." style="min-height:400px;margin-top:12px;"></textarea>
+      <div class="bar" style="margin-top:12px;">
+        <button class="btn" id="saveArticle">Save Article</button>
+        <span id="articleStatus"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="bar">
+        <strong>Video Editor</strong>
+      </div>
+      <div class="row">
+        <select id="videoSelect">
+          <option value="">Select a video to edit...</option>
+        </select>
+        <button class="btn" id="loadVideo">Load Video</button>
+      </div>
+      <div style="margin-top:12px;">
+        <label>YouTube ID:</label>
+        <input type="text" id="videoYoutubeId" placeholder="e.g., JjH8AfUIB8E" style="width:100%;margin-bottom:8px;" />
+        <label>Title:</label>
+        <input type="text" id="videoTitle" placeholder="Video title" style="width:100%;margin-bottom:8px;" />
+        <label>Channel:</label>
+        <input type="text" id="videoChannel" placeholder="Channel name" style="width:100%;margin-bottom:8px;" />
+        <label>Description:</label>
+        <textarea id="videoDescription" placeholder="Video description" style="width:100%;min-height:80px;margin-bottom:8px;"></textarea>
+      </div>
+      <div class="bar" style="margin-top:12px;">
+        <button class="btn" id="saveVideo">Save Video</button>
+        <span id="videoStatus"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="bar">
+        <strong>Video Podcasts</strong>
+        <button class="btn" id="addVideo">+ Add Video</button>
+      </div>
+      <div id="videoList"></div>
+    </div>
+
+    <div class="card">
+      <div class="bar">
+        <strong>Trending Articles</strong>
+        <button class="btn" id="addTrending">+ Add Trending</button>
+      </div>
+      <div id="trendingList"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+
+    const state = { news: [], videos: [], trending: [] };
+
+    const els = {
+      newsList: document.getElementById('newsList'),
+      videoList: document.getElementById('videoList'),
+      trendingList: document.getElementById('trendingList'),
+      addNews: document.getElementById('addNews'),
+      addVideo: document.getElementById('addVideo'),
+      addTrending: document.getElementById('addTrending'),
+      articleUpload: document.getElementById('articleUpload'),
+      imageUpload: document.getElementById('imageUpload'),
+      articleFile: document.getElementById('articleFile'),
+      imageFile: document.getElementById('imageFile'),
+      uploadStatus: document.getElementById('uploadStatus'),
+      articleSelect: document.getElementById('articleSelect'),
+      loadArticle: document.getElementById('loadArticle'),
+      articleContent: document.getElementById('articleContent'),
+      saveArticle: document.getElementById('saveArticle'),
+      articleStatus: document.getElementById('articleStatus'),
+      videoSelect: document.getElementById('videoSelect'),
+      loadVideo: document.getElementById('loadVideo'),
+      videoYoutubeId: document.getElementById('videoYoutubeId'),
+      videoTitle: document.getElementById('videoTitle'),
+      videoChannel: document.getElementById('videoChannel'),
+      videoDescription: document.getElementById('videoDescription'),
+      saveVideo: document.getElementById('saveVideo'),
+      videoStatus: document.getElementById('videoStatus'),
+    };
+
+    async function apiRequest(url, options = {}) {
+      const response = await fetch(`${API_BASE}${url}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+      if (!response.ok) throw new Error(`API Error: ${response.status}`);
+      return response.json();
+    }
+
+    async function loadData() {
+      try {
+        const [news, videos, trending] = await Promise.all([
+          apiRequest('/news'),
+          apiRequest('/videos'),
+          apiRequest('/trending')
+        ]);
+        state.news = news;
+        state.videos = videos;
+        state.trending = trending;
+        render();
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        showStatus('Failed to load data', 'error');
+      }
+    }
+
+    function render() {
+      renderNews();
+      renderVideos();
+      renderTrending();
+    }
+
+    function renderNews() {
+      els.newsList.innerHTML = '';
+      state.news.forEach((n, i) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+          <div class="grid">
+            <div>
+              <label>Title</label>
+              <input value="${esc(n.title || '')}" data-id="${n._id}" data-k="title">
+            </div>
+            <div>
+              <label>Category</label>
+              <input value="${esc(n.category || '')}" data-id="${n._id}" data-k="category">
+            </div>
+            <div>
+              <label>Time</label>
+              <input value="${esc(n.time || '')}" data-id="${n._id}" data-k="time">
+            </div>
+            <div>
+              <label>Excerpt</label>
+              <textarea data-id="${n._id}" data-k="excerpt">${esc(n.excerpt || '')}</textarea>
+            </div>
+            <div>
+              <label>Article link (href)</label>
+              <input value="${esc(n.href || '')}" data-id="${n._id}" data-k="href">
+            </div>
+          </div>
+          <div class="bar">
+            <span class="muted">ID: ${n._id}</span>
+            <button class="btn danger" data-act="deleteNews" data-id="${n._id}">Delete</button>
+          </div>
+        `;
+        els.newsList.appendChild(div);
+      });
+    }
+
+    function renderVideos() {
+      els.videoList.innerHTML = '';
+      state.videos.forEach((v, i) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+          <div class="grid">
+            <div>
+              <label>YouTube ID</label>
+              <input value="${esc(v.youtubeId || '')}" data-id="${v._id}" data-k="youtubeId" data-type="video">
+            </div>
+            <div>
+              <label>Title</label>
+              <input value="${esc(v.title || '')}" data-id="${v._id}" data-k="title" data-type="video">
+            </div>
+            <div>
+              <label>Channel</label>
+              <input value="${esc(v.channel || '')}" data-id="${v._id}" data-k="channel" data-type="video">
+            </div>
+            <div>
+              <label>Description</label>
+              <textarea data-id="${v._id}" data-k="description" data-type="video">${esc(v.description || '')}</textarea>
+            </div>
+          </div>
+          <div class="bar">
+            <span class="muted">ID: ${v._id}</span>
+            <button class="btn danger" data-act="deleteVideo" data-id="${v._id}">Delete</button>
+          </div>
+        `;
+        els.videoList.appendChild(div);
+      });
+    }
+
+    function renderTrending() {
+      els.trendingList.innerHTML = '';
+      state.trending.forEach((t, i) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+          <div class="grid">
+            <div>
+              <label>Number</label>
+              <input type="number" value="${t.number || 1}" data-id="${t._id}" data-k="number" data-type="trending">
+            </div>
+            <div>
+              <label>Title</label>
+              <input value="${esc(t.title || '')}" data-id="${t._id}" data-k="title" data-type="trending">
+            </div>
+            <div>
+              <label>Description</label>
+              <textarea data-id="${t._id}" data-k="description" data-type="trending">${esc(t.description || '')}</textarea>
+            </div>
+            <div>
+              <label>Article link (href)</label>
+              <input value="${esc(t.href || '')}" data-id="${t._id}" data-k="href" data-type="trending">
+            </div>
+          </div>
+          <div class="bar">
+            <span class="muted">ID: ${t._id}</span>
+            <button class="btn danger" data-act="deleteTrending" data-id="${t._id}">Delete</button>
+          </div>
+        `;
+        els.trendingList.appendChild(div);
+      });
+    }
+
+    function esc(s=''){ return String(s).replace(/&/g,'&amp;').replace(/</g,'<').replace(/>/g,'>') }
+
+    function showStatus(message, type = 'success') {
+      els.uploadStatus.innerHTML = `<div class="${type}">${message}</div>`;
+      setTimeout(() => { els.uploadStatus.innerHTML = ''; }, 5000);
+    }
+
+    // Load data on page load
+    loadData();
+    loadArticleList();
+    loadVideoList();
+
+    // Add items
+    els.addNews.addEventListener('click', async () => {
+      try {
+        const newItem = { title: '', category: '', time: '', excerpt: '', href: '' };
+        const result = await apiRequest('/news', { method: 'POST', body: JSON.stringify(newItem) });
+        state.news.unshift(result);
+        render();
+        showStatus('News item added');
+      } catch (error) {
+        showStatus('Failed to add news item', 'error');
+      }
+    });
+
+    els.addVideo.addEventListener('click', async () => {
+      try {
+        const newItem = { youtubeId: '', title: '', channel: '', description: '' };
+        const result = await apiRequest('/videos', { method: 'POST', body: JSON.stringify(newItem) });
+        state.videos.push(result);
+        render();
+        showStatus('Video added');
+      } catch (error) {
+        showStatus('Failed to add video', 'error');
+      }
+    });
+
+    els.addTrending.addEventListener('click', async () => {
+      try {
+        const newItem = { number: state.trending.length + 1, title: '', description: '', href: '' };
+        const result = await apiRequest('/trending', { method: 'POST', body: JSON.stringify(newItem) });
+        state.trending.push(result);
+        render();
+        showStatus('Trending item added');
+      } catch (error) {
+        showStatus('Failed to add trending item', 'error');
+      }
+    });
+
+    // Update items on input
+    document.body.addEventListener('input', async (e) => {
+      const id = e.target.getAttribute('data-id');
+      const key = e.target.getAttribute('data-k');
+      const type = e.target.getAttribute('data-type');
+      if (!id || !key) return;
+
+      const value = e.target.value;
+      const endpoint = type === 'video' ? '/videos' : type === 'trending' ? '/trending' : '/news';
+
+      try {
+        await apiRequest(`${endpoint}/${id}`, { method: 'PUT', body: JSON.stringify({ [key]: value }) });
+        // Update local state
+        const list = type === 'video' ? state.videos : type === 'trending' ? state.trending : state.news;
+        const item = list.find(item => item._id === id);
+        if (item) item[key] = value;
+      } catch (error) {
+        console.error('Failed to update:', error);
+      }
+    });
+
+    // Delete items
+    document.body.addEventListener('click', async (e) => {
+      const act = e.target.getAttribute('data-act');
+      const id = e.target.getAttribute('data-id');
+      if (!act || !id) return;
+
+      try {
+        if (act === 'deleteNews') {
+          await apiRequest(`/news/${id}`, { method: 'DELETE' });
+          state.news = state.news.filter(n => n._id !== id);
+        } else if (act === 'deleteVideo') {
+          await apiRequest(`/videos/${id}`, { method: 'DELETE' });
+          state.videos = state.videos.filter(v => v._id !== id);
+        } else if (act === 'deleteTrending') {
+          await apiRequest(`/trending/${id}`, { method: 'DELETE' });
+          state.trending = state.trending.filter(t => t._id !== id);
+        }
+        render();
+        showStatus('Item deleted');
+      } catch (error) {
+        showStatus('Failed to delete item', 'error');
+      }
+    });
+
+    // File uploads
+    function setupUpload(uploadEl, fileEl, endpoint) {
+      uploadEl.addEventListener('click', () => fileEl.click());
+      uploadEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadEl.classList.add('dragover');
+      });
+      uploadEl.addEventListener('dragleave', () => uploadEl.classList.remove('dragover'));
+      uploadEl.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        uploadEl.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        await uploadFiles(files, endpoint);
+      });
+      fileEl.addEventListener('change', async (e) => {
+        await uploadFiles(e.target.files, endpoint);
+      });
+    }
+
+    async function uploadFiles(files, endpoint) {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+          const response = await fetch(`${API_BASE}/upload/${endpoint}`, {
+            method: 'POST',
+            body: formData
+          });
+          if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+          const result = await response.json();
+          showStatus(`Uploaded ${result.filename}`);
+        } catch (error) {
+          showStatus(`Failed to upload ${file.name}`, 'error');
+        }
+      }
+    }
+
+    setupUpload(els.articleUpload, els.articleFile, 'article');
+    setupUpload(els.imageUpload, els.imageFile, 'image');
+
+    // Article editor functions
+    async function loadArticleList() {
+      try {
+        // Get list of article files from news and trending items
+        const [news, trending] = await Promise.all([
+          apiRequest('/news'),
+          apiRequest('/trending')
+        ]);
+
+        const newsArticles = news.filter(item => item.href && item.href.startsWith('articles/'));
+        const trendingArticles = trending.filter(item => item.href && item.href.startsWith('articles/'));
+
+        els.articleSelect.innerHTML = '<option value="">Select an article to edit...</option>';
+
+        // Add news articles
+        newsArticles.forEach(item => {
+          const filename = item.href.replace('articles/', '');
+          const option = document.createElement('option');
+          option.value = filename;
+          option.textContent = `📰 ${item.title} (${filename})`;
+          els.articleSelect.appendChild(option);
+        });
+
+        // Add trending articles
+        trendingArticles.forEach(item => {
+          const filename = item.href.replace('articles/', '');
+          const option = document.createElement('option');
+          option.value = filename;
+          option.textContent = `🔥 ${item.title} (${filename})`;
+          els.articleSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Failed to load article list:', error);
+      }
+    }
+
+    els.loadArticle.addEventListener('click', async () => {
+      const filename = els.articleSelect.value;
+      if (!filename) {
+        showStatus('Please select an article first', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/articles/${filename}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        const data = await response.json();
+        els.articleContent.value = data.content;
+        showStatus('Article loaded successfully');
+      } catch (error) {
+        showStatus('Failed to load article', 'error');
+      }
+    });
+
+    els.saveArticle.addEventListener('click', async () => {
+      const filename = els.articleSelect.value;
+      const content = els.articleContent.value;
+
+      if (!filename) {
+        showStatus('Please select an article first', 'error');
+        return;
+      }
+
+      if (!content.trim()) {
+        showStatus('Article content cannot be empty', 'error');
+        return;
+      }
+
+      try {
+        await apiRequest(`/articles/${filename}`, {
+          method: 'PUT',
+          body: JSON.stringify({ content })
+        });
+        showStatus('Article saved successfully');
+      } catch (error) {
+        showStatus('Failed to save article', 'error');
+      }
+    });
+
+    // Video editor functions
+    async function loadVideoList() {
+      try {
+        const videos = await apiRequest('/videos');
+
+        els.videoSelect.innerHTML = '<option value="">Select a video to edit...</option>';
+        videos.forEach((video, index) => {
+          const option = document.createElement('option');
+          option.value = index; // Use index as identifier
+          option.textContent = `🎥 ${video.title} (${video.youtubeId})`;
+          els.videoSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Failed to load video list:', error);
+      }
+    }
+
+    els.loadVideo.addEventListener('click', async () => {
+      const videoIndex = els.videoSelect.value;
+      if (videoIndex === '') {
+        showStatus('Please select a video first', 'error');
+        return;
+      }
+
+      try {
+        const videos = await apiRequest('/videos');
+        const video = videos[videoIndex];
+
+        els.videoYoutubeId.value = video.youtubeId || '';
+        els.videoTitle.value = video.title || '';
+        els.videoChannel.value = video.channel || '';
+        els.videoDescription.value = video.description || '';
+
+        showStatus('Video loaded successfully');
+      } catch (error) {
+        showStatus('Failed to load video', 'error');
+      }
+    });
+
+    els.saveVideo.addEventListener('click', async () => {
+      const videoIndex = els.videoSelect.value;
+      if (videoIndex === '') {
+        showStatus('Please select a video first', 'error');
+        return;
+      }
+
+      const updatedVideo = {
+        youtubeId: els.videoYoutubeId.value.trim(),
+        title: els.videoTitle.value.trim(),
+        channel: els.videoChannel.value.trim(),
+        description: els.videoDescription.value.trim()
+      };
+
+      if (!updatedVideo.youtubeId || !updatedVideo.title) {
+        showStatus('YouTube ID and Title are required', 'error');
+        return;
+      }
+
+      try {
+        const videos = await apiRequest('/videos');
+        const videoId = videos[videoIndex].id;
+
+        await apiRequest(`/videos/${videoId}`, {
+          method: 'PUT',
+          body: JSON.stringify(updatedVideo)
+        });
+
+        showStatus('Video updated successfully');
+        loadData(); // Refresh the video list
+        loadVideoList(); // Refresh the video selector
+      } catch (error) {
+        showStatus('Failed to save video', 'error');
+      }
+    });
+
+    // Update article and video lists when data changes
+    const originalLoadData = loadData;
+    loadData = async () => {
+      await originalLoadData();
+      loadArticleList();
+      loadVideoList();
+    };
+  </script>
+</body>
+</html>
