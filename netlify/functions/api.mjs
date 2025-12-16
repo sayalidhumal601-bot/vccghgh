@@ -33,7 +33,7 @@ const defaultContent = {
       category: "Health",
       time: "12 hours ago",
       excerpt: "Clinical trials reveal breakthrough therapy could transform treatment for rare genetic disorders...",
-      href: "articles/medical-treatment-promise.html"
+      href: "articles/news.html"
     }
   ],
   videos: [
